@@ -175,7 +175,7 @@ void Handler::run()
 //                            strncpy(sock_buf, ss.str().c_str(), size);
                         }
 
-                        send(fd, s.str().c_str(), size, MSG_NOSIGNAL);
+                        send(fd, ss.str().c_str(), size, MSG_NOSIGNAL);
                     }
 
                     if (recv_sz == 0 && errno != EAGAIN)
