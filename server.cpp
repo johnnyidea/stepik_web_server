@@ -9,6 +9,7 @@
 // /home/box/final/final -h <ip> -p <port> -d <directory>
 
 #include <iostream>
+#include <csignal>
 
 #include "web_params.h"
 #include "handler.h"
@@ -17,7 +18,20 @@
 int main(int argc, char** argv)
 {
 
+    // For demon.
+    pid_t pid;
 
+    pid = fork();
+
+    if (pid < 0)
+        exit(EXIT_FAILURE);
+
+    if (pid == 0) {
+        setsid();
+        close(STDIN_FILENO);
+        close(STDOUT_FILENO);
+        close(STDERR_FILENO);
+    }
 
     WebParams web_params;
     web_params.parse(argc, argv);

@@ -88,7 +88,7 @@ void Handler::run()
     int e_poll = epoll_create1(0);
     struct epoll_event event;
     event.data.fd = _master_socket_fd;
-    event.events = EPOLLIN | EPOLLET;// access to read | edge trigger regime
+    event.events = EPOLLIN;// access to read | edge trigger regime
     epoll_ctl(e_poll, EPOLL_CTL_ADD, _master_socket_fd, &event); //register events
 
 
@@ -109,88 +109,84 @@ void Handler::run()
                 epoll_ctl(e_poll, EPOLL_CTL_ADD, new_slave_socket, &event);
             } else
             {
-
-                const int threads_num{2};
-                std::vector<std::thread> threads;
-                threads.reserve(threads_num);
-                for (int i = 0; i < threads_num; i++)
+                int fd = static_cast<int>(events[i].data.fd);
+                epoll_ctl(e_poll, EPOLL_CTL_DEL, fd, 0);
+                thread t([&fd, this]()
                 {
-                    int fd = static_cast<int>(events[i].data.fd);
-                    threads.push_back(thread([&fd, this]()
+                    std::stringstream ss;
+                    static char sock_buf[1024];
+                    int recv_sz = recv(fd, sock_buf, 1024, MSG_NOSIGNAL);
+
+                    size_t size = 0;
+
+                    if (recv_sz > 0)
                     {
-                        std::stringstream ss;
-                        static char sock_buf[1024];
-                        int recv_sz = recv(fd, sock_buf, 1024, MSG_NOSIGNAL);
+//                        cout << sock_buf << endl;
 
-                        size_t size = 0;
+                        Request request;
+                        HttpRequestParser parser;
 
-                        if (recv_sz > 0)
+                        HttpRequestParser::ParseResult res = parser.parse(request, sock_buf, sock_buf + strlen(sock_buf));
+
+                        FILE *file_in = NULL;
+                        char buff[255] = {0};
+
+
+                        std::string file_in_name = _dir;
+
+                        std::cout << request.inspect() << std::endl;
+                        file_in_name += request.uri;
+                        file_in = fopen(file_in_name.c_str(), "r");
+                        if (file_in)
                         {
-                            Request request;
-                            HttpRequestParser parser;
+                            std::string tmp;
+                            fgets(buff, 255, file_in);
 
-                            HttpRequestParser::ParseResult res = parser.parse(request, sock_buf, sock_buf + strlen(sock_buf));
+                            tmp += buff;
 
-                            FILE *file_in = NULL;
-                            char buff[255] = {0};
+                            fclose(file_in);
 
+                            ss << "HTTP/1.0 200 OK";
+                            ss << "\r\n";
+                            ss << "Content-length: ";
+                            ss << tmp.size();
+                            ss << "\r\n";
+                            ss << "Content-Type: text/html";
+                            ss << "\r\n\r\n";
+                            ss << tmp;
 
-                            std::string file_in_name = _dir;
+                            printf("ss = %s", ss.str().c_str());
 
-                            std::cout << request.inspect() << std::endl;
-                            file_in_name += request.uri;
-                            file_in = fopen(file_in_name.c_str(), "r");
-                            if (file_in)
-                            {
-                                std::string tmp;
-                                fgets(buff, 255, file_in);
+                            size = ss.str().size();
 
-                                tmp += buff;
+                            strncpy(sock_buf, ss.str().c_str(), size);
+                        } else {
+                            ss << "HTTP/1.0 404 NOT FOUND";
+                            ss << "\r\n";
+                            ss << "Content-length: ";
+                            ss << 0;
+                            ss << "\r\n";
+                            ss << "Content-Type: text/html";
+                            ss << "\r\n\r\n";
 
-                                fclose(file_in);
+                            printf("ss = %s", ss.str().c_str());
 
-                                ss << "HTTP/1.0 200 OK";
-                                ss << "\r\n";
-                                ss << "Content-length: ";
-                                ss << tmp.size();
-                                ss << "\r\n";
-                                ss << "Content-Type: text/html";
-                                ss << "\r\n\r\n";
-                                ss << tmp;
+                            size = ss.str().size();
 
-                                printf("ss = %s", ss.str().c_str());
-
-                                size = ss.str().size();
-
-                                strncpy(sock_buf, ss.str().c_str(), size);
-                            } else {
-                                ss << "HTTP/1.0 404 NOT FOUND";
-                                ss << "\r\n";
-                                ss << "Content-length: ";
-                                ss << 0;
-                                ss << "\r\n";
-                                ss << "Content-Type: text/html";
-                                ss << "\r\n\r\n";
-
-                                printf("ss = %s", ss.str().c_str());
-
-                                size = ss.str().size();
-
-                                strncpy(sock_buf, ss.str().c_str(), size);
-                            }
+                            strncpy(sock_buf, ss.str().c_str(), size);
                         }
+                    }
 
-                        if (recv_sz == 0 && errno != EAGAIN)
-                        {
-                            shutdown(fd, SHUT_RDWR);
-                            close(fd);
-                        }
+                    if (recv_sz == 0 && errno != EAGAIN)
+                    {
+                        shutdown(fd, SHUT_RDWR);
+                        close(fd);
+                    }
 
-                        send(fd, sock_buf, size, MSG_NOSIGNAL);
-                    }));
+                    send(fd, sock_buf, size, MSG_NOSIGNAL);
+                });
 
-                    threads.rbegin()->detach();
-                }
+                t.detach();
             }
     }
 }
