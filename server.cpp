@@ -38,6 +38,9 @@ int main(int argc, char** argv)
     if (pid < 0)
         exit(EXIT_FAILURE);
 
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
     if (pid == 0) {
         setsid();
         close(STDIN_FILENO);
