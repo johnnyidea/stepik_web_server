@@ -113,93 +113,79 @@ void Handler::run()
                 epoll_ctl(e_poll, EPOLL_CTL_DEL, fd, 0);
                 thread t([&fd, this]()
                 {
-                    static char sock_buf[1024] = {0};
+                    std::stringstream ss;
+                    static char sock_buf[1024];
                     int recv_sz = recv(fd, sock_buf, 1024, MSG_NOSIGNAL);
 
-//                    cout << sock_buf << endl;
-
-                    std::stringstream ss_file_name(sock_buf);
-
-                    std::string token = "";
-                    std::string path = "";
-
-                    while (ss_file_name >> token)
-                    {
-                        std::size_t found = token.find("GET");
-
-                        if (found != std::string::npos)
-                            continue;
-
-                        path = token;
-                        break;
-
-                        printf("%s\n", token.c_str());
-                    }
-                    std::size_t found = path.find('?');
-
-                    if (found != std::string::npos)
-                    {
-                        std::cout << found <<'\n';
-                        path = path.substr (0,found);
-                    }
-
-                    std::cout << "path = " << path <<'\n';
-
-                    std::stringstream ss;
-                    FILE *file_in = NULL;
-                    char buff[255] = {0};
-
-                    std::string file_in_name = _dir;
-
-                    file_in_name += path;
                     size_t size = 0;
 
-                    file_in = fopen(file_in_name.c_str(), "r");
-                    if (file_in)
+                    if (recv_sz > 0)
                     {
-                        std::string tmp;
-                        fgets(buff, 255, file_in);
+//                        cout << sock_buf << endl;
 
-                        tmp += buff;
+                        Request request;
+                        HttpRequestParser parser;
 
-                        fclose(file_in);
+                        HttpRequestParser::ParseResult res = parser.parse(request, sock_buf, sock_buf + strlen(sock_buf));
 
-                        ss << "HTTP/1.0 200 OK";
-                        ss << "\r\n";
-                        ss << "Content-length: ";
-                        ss << tmp.size();
-                        ss << "\r\n";
-                        ss << "Content-Type: text/html";
-                        ss << "\r\n\r\n";
-                        ss << tmp;
+                        FILE *file_in = NULL;
+                        char buff[255] = {0};
 
-                        printf("ss = %s", ss.str().c_str());
+                        std::string file_in_name = _dir;
 
-                        size = ss.str().size();
+//                        std::cout << request.inspect() << std::endl;
+                        file_in_name += request.uri;
+                        file_in = fopen(file_in_name.c_str(), "r");
+                        if (file_in)
+                        {
+                            std::string tmp;
+                            fgets(buff, 255, file_in);
 
-                        strncpy(sock_buf, ss.str().c_str(), size);
-                    } else {
-                        ss << "HTTP/1.0 404 NOT FOUND";
-                        ss << "\r\n";
-                        ss << "Content-length: ";
-                        ss << 0;
-                        ss << "\r\n";
-                        ss << "Content-Type: text/html";
-                        ss << "\r\n\r\n";
+                            tmp += buff;
 
-                        printf("ss = %s", ss.str().c_str());
+                            fclose(file_in);
 
-                        size = ss.str().size();
+                            ss << "HTTP/1.0 200 OK";
+                            ss << "\r\n";
+                            ss << "Content-length: ";
+                            ss << recv_sz;
+                            ss << "\r\n";
+                            ss << "Content-Type: text/html";
+                            ss << "\r\n\r\n";
+                            ss << tmp;
 
-                        strncpy(sock_buf, ss.str().c_str(), size);
+                            printf("ss = %s", ss.str().c_str());
+
+                            size = ss.str().size();
+
+//                            strncpy(sock_buf, ss.str().c_str(), size);
+                        } else {
+                            ss << "HTTP/1.0 404 NOT FOUND";
+                            ss << "\r\n";
+                            ss << "Content-length: ";
+                            ss << 0;
+                            ss << "\r\n";
+                            ss << "Content-Type: text/html";
+                            ss << "\r\n\r\n";
+
+                            printf("ss = %s", ss.str().c_str());
+
+                            size = ss.str().size();
+
+//                            strncpy(sock_buf, ss.str().c_str(), size);
+                        }
+
+                        send(fd, ss.str().c_str(), size, MSG_NOSIGNAL);
                     }
 
                     if (recv_sz == 0 && errno != EAGAIN)
                     {
                         shutdown(fd, SHUT_RDWR);
                         close(fd);
-                    } else if (recv_sz > 0)
-                        send(fd, sock_buf, size, MSG_NOSIGNAL);
+                    }
+
+//                    cout << "\n\nBUFFER OUT START \t\t" << sock_buf << "\n\nBUFFER OUT END \t\t" << endl;
+
                 });
 
                 t.detach();
