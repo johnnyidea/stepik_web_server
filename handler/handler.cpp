@@ -105,7 +105,7 @@ void Handler::run()
 
                 struct epoll_event event;
                 event.data.fd = new_slave_socket;
-                event.events = EPOLLIN | EPOLLET;
+                event.events = EPOLLIN;
                 epoll_ctl(e_poll, EPOLL_CTL_ADD, new_slave_socket, &event);
             } else
             {
@@ -148,7 +148,7 @@ void Handler::run()
                             ss << "HTTP/1.0 200 OK";
                             ss << "\r\n";
                             ss << "Content-length: ";
-                            ss << recv_sz;
+                            ss << tmp.size();
                             ss << "\r\n";
                             ss << "Content-Type: text/html";
                             ss << "\r\n\r\n";
@@ -158,7 +158,7 @@ void Handler::run()
 
                             size = ss.str().size();
 
-//                            strncpy(sock_buf, ss.str().c_str(), size);
+                            strncpy(sock_buf, ss.str().c_str(), size);
                         } else {
                             ss << "HTTP/1.0 404 NOT FOUND";
                             ss << "\r\n";
@@ -172,10 +172,10 @@ void Handler::run()
 
                             size = ss.str().size();
 
-//                            strncpy(sock_buf, ss.str().c_str(), size);
+                            strncpy(sock_buf, ss.str().c_str(), size);
                         }
 
-                        send(fd, ss.str().c_str(), size, MSG_NOSIGNAL);
+                        send(fd, sock_buf, size, MSG_NOSIGNAL);
                     }
 
                     if (recv_sz == 0 && errno != EAGAIN)
@@ -188,8 +188,8 @@ void Handler::run()
 
                 t.detach();
 
-                shutdown(fd, SHUT_RDWR);
-                close(fd);
+//                shutdown(fd, SHUT_RDWR);
+//                close(fd);
             }
     }
 }
