@@ -1,13 +1,12 @@
 /*! \file handler.cpp
  * \brief Handler class implementation.
  *
- * \authors meritocratic
+ * \authors rene
  * \date April 2022
  */
 
 //=======================================================================================
 #include <iostream>
-#include <set>
 #include <algorithm>
 
 #include <sys/types.h>
