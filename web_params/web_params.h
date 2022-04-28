@@ -23,10 +23,9 @@ class WebParams
 public:
 
     //! \brief default constructor.    
-    WebParams();
+    WebParams(){};
 
     //! \brief default destructor.
-    ~WebParams();
 
     //-----------------------------------------------------------------------------------
 
