@@ -30,7 +30,7 @@ public:
     Handler(const WebParams& web_params);
 
     //! \brief default destructor.
-    ~Handler() = default;
+    ~Handler();
 
     //-----------------------------------------------------------------------------------
 

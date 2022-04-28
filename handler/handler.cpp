@@ -47,7 +47,7 @@ Handler::Handler(const WebParams &web_params)
     :_master_socket_fd(socket(AF_INET, SOCK_STREAM, 0)),
      _dir(web_params.get_dir())
 {
-    int opt{1};
+    int opt = 1;
 
     if (_master_socket_fd < 0)
     {
