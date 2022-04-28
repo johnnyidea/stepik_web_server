@@ -19,9 +19,13 @@
 
 #include "handler.h"
 
+#include "../third_party/httpparser/src/httpparser/request.h"
+#include "../third_party/httpparser/src/httpparser/httprequestparser.h"
+
 #define MAX_EVENTS 32
 
 using namespace std;
+using namespace httpparser;
 
 //=======================================================================================
 int set_nonblock(int fd)
@@ -40,7 +44,8 @@ int set_nonblock(int fd)
 }
 //=======================================================================================
 Handler::Handler(const WebParams &web_params)
-    :_master_socket_fd(socket(AF_INET, SOCK_STREAM, 0))
+    :_master_socket_fd(socket(AF_INET, SOCK_STREAM, 0)),
+     _dir(web_params.get_dir())
 {
     int opt{1};
 
@@ -86,6 +91,7 @@ void Handler::run()
     event.events = EPOLLIN | EPOLLET;// access to read | edge trigger regime
     epoll_ctl(e_poll, EPOLL_CTL_ADD, _master_socket_fd, &event); //register events
 
+
     while (true)
     {
         struct epoll_event events[MAX_EVENTS];
@@ -96,22 +102,123 @@ void Handler::run()
             {
                 int new_slave_socket = accept(_master_socket_fd, 0, 0);
                 set_nonblock(new_slave_socket);
+
                 struct epoll_event event;
                 event.data.fd = new_slave_socket;
                 event.events = EPOLLIN | EPOLLET;
                 epoll_ctl(e_poll, EPOLL_CTL_ADD, new_slave_socket, &event);
             } else
             {
-                static char buf[1024];
-                int recv_sz = recv(events[i].data.fd, buf, 1024, MSG_NOSIGNAL);
-                if (recv_sz == 0 && errno != EAGAIN)
-                {
-                    shutdown(events[i].data.fd, SHUT_RDWR);
-                    close(events[i].data.fd);
-                } else if (recv_sz > 0)
-                    send(events[i].data.fd, buf, recv_sz, MSG_NOSIGNAL);
-            }
 
+                const int threads_num{2};
+                std::vector<std::thread> threads;
+                threads.reserve(threads_num);
+                for (int i = 0; i < threads_num; i++)
+                {
+                    int fd = static_cast<int>(events[i].data.fd);
+                    threads.push_back(thread([&fd, this]()
+                    {
+                        std::stringstream ss;
+                        static char sock_buf[1024];
+                        int recv_sz = recv(fd, sock_buf, 1024, MSG_NOSIGNAL);
+
+                        size_t size = 0;
+
+                        if (recv_sz > 0)
+                        {
+                            Request request;
+                            HttpRequestParser parser;
+
+                            HttpRequestParser::ParseResult res = parser.parse(request, sock_buf, sock_buf + strlen(sock_buf));
+
+                            FILE *file_in = NULL;
+                            char buff[255] = {0};
+
+
+                            std::string file_in_name = _dir;
+
+                            std::cout << request.inspect() << std::endl;
+                            file_in_name += request.uri;
+                            file_in = fopen(file_in_name.c_str(), "r");
+                            if (file_in)
+                            {
+                                std::string tmp;
+                                fgets(buff, 255, file_in);
+
+                                tmp += buff;
+
+                                fclose(file_in);
+
+                                ss << "HTTP/1.0 200 OK";
+                                ss << "\r\n";
+                                ss << "Content-length: ";
+                                ss << tmp.size();
+                                ss << "\r\n";
+                                ss << "Content-Type: text/html";
+                                ss << "\r\n\r\n";
+                                ss << tmp;
+
+                                printf("ss = %s", ss.str().c_str());
+
+                                size = ss.str().size();
+
+                                strncpy(sock_buf, ss.str().c_str(), size);
+                            } else {
+                                ss << "HTTP/1.0 404 NOT FOUND";
+                                ss << "\r\n";
+                                ss << "Content-length: ";
+                                ss << 0;
+                                ss << "\r\n";
+                                ss << "Content-Type: text/html";
+                                ss << "\r\n\r\n";
+
+                                printf("ss = %s", ss.str().c_str());
+
+                                size = ss.str().size();
+
+                                strncpy(sock_buf, ss.str().c_str(), size);
+                            }
+                        }
+
+                        if (recv_sz == 0 && errno != EAGAIN)
+                        {
+                            shutdown(fd, SHUT_RDWR);
+                            close(fd);
+                        }
+
+                        send(fd, sock_buf, size, MSG_NOSIGNAL);
+                    }));
+
+                    threads.rbegin()->detach();
+                }
+            }
+    }
+}
+
+void Handler::_http_handle(int fd)
+{
+    static char buf[1024];
+    int recv_sz = recv(fd, buf, 1024, MSG_NOSIGNAL);
+
+    if (recv_sz == 0 && errno != EAGAIN)
+    {
+        shutdown(fd, SHUT_RDWR);
+        close(fd);
+    }
+    else if (recv_sz > 0)
+    {
+        Request request;
+        HttpRequestParser parser;
+
+        HttpRequestParser::ParseResult res = parser.parse(request, buf, buf + strlen(buf));
+
+        if (res == HttpRequestParser::ParsingCompleted)
+        {
+            std::cout << request.inspect() << std::endl;
+        } else
+        {
+            std::cerr << "Parsing failed" << std::endl;
+        }
     }
 }
 //=======================================================================================
