@@ -117,24 +117,43 @@ void Handler::run()
                     static char sock_buf[1024];
                     int recv_sz = recv(fd, sock_buf, 1024, MSG_NOSIGNAL);
 
-                    size_t size = 0;
-
                     if (recv_sz > 0)
                     {
-//                        cout << sock_buf << endl;
+                        std::stringstream ss_file_name(sock_buf);
 
-                        Request request;
-                        HttpRequestParser parser;
+                        std::string token = "";
+                        std::string path = "";
 
-                        HttpRequestParser::ParseResult res = parser.parse(request, sock_buf, sock_buf + strlen(sock_buf));
+
+                        while (ss_file_name >> token)
+                        {
+                            std::size_t found = token.find("GET");
+
+                            if (found != std::string::npos)
+                                continue;
+
+                            path = token;
+                            break;
+                        }
+
+                        std::size_t found = path.find('?');
+
+                        if (found != std::string::npos) {
+                            std::cout << found <<'\n';
+
+                            path = path.substr (0,found);
+                        }
+
+                        std::cout << "path = " << path <<'\n';
 
                         FILE *file_in = NULL;
                         char buff[255] = {0};
 
                         std::string file_in_name = _dir;
 
-//                        std::cout << request.inspect() << std::endl;
-                        file_in_name += request.uri;
+                        file_in_name += path;
+                        size_t size = 0;
+
                         file_in = fopen(file_in_name.c_str(), "r");
                         if (file_in)
                         {
