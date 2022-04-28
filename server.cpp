@@ -38,6 +38,8 @@ int main(int argc, char** argv)
     if (pid < 0)
         exit(EXIT_FAILURE);
 
+//    std::cerr << "dont forget";
+
     if (pid > 0)
         exit(EXIT_SUCCESS);
 

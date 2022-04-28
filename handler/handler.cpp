@@ -114,19 +114,44 @@ void Handler::run()
                 thread t([&fd, this]()
                 {
                     std::stringstream ss;
-                    static char sock_buf[1024];
+                    static char sock_buf[1024] = {0};
                     int recv_sz = recv(fd, sock_buf, 1024, MSG_NOSIGNAL);
-
-                    size_t size = 0;
 
                     if (recv_sz > 0)
                     {
 //                        cout << sock_buf << endl;
 
-                        Request request;
-                        HttpRequestParser parser;
+                        std::stringstream ss_file_name(sock_buf);
 
-                        HttpRequestParser::ParseResult res = parser.parse(request, sock_buf, sock_buf + strlen(sock_buf));
+                        std::string token = "";
+                        std::string path = "";
+
+                        while (ss_file_name >> token)
+                        {
+                            //    http_request.push_back(token);
+
+                            std::size_t found = token.find("GET");
+
+                            if (found != std::string::npos) {
+                                //      std::cout << found <<'\n';
+
+                                continue;
+                            }
+
+                            path = token;
+                            break;
+
+                            printf("%s\n", token.c_str());
+                        }
+                        std::size_t found = path.find('?');
+
+                        if (found != std::string::npos)
+                        {
+                            std::cout << found <<'\n';
+                            path = path.substr (0,found);
+                        }
+
+                        std::cout << "path = " << path <<'\n';
 
                         FILE *file_in = NULL;
                         char buff[255] = {0};
@@ -134,8 +159,9 @@ void Handler::run()
 
                         std::string file_in_name = _dir;
 
-                        std::cout << request.inspect() << std::endl;
-                        file_in_name += request.uri;
+                        file_in_name += path;
+                        size_t size = 0;
+
                         file_in = fopen(file_in_name.c_str(), "r");
                         if (file_in)
                         {
@@ -175,6 +201,8 @@ void Handler::run()
 
                             strncpy(sock_buf, ss.str().c_str(), size);
                         }
+
+                        send(fd, sock_buf, size, MSG_NOSIGNAL);
                     }
 
                     if (recv_sz == 0 && errno != EAGAIN)
@@ -182,8 +210,6 @@ void Handler::run()
                         shutdown(fd, SHUT_RDWR);
                         close(fd);
                     }
-
-                    send(fd, sock_buf, size, MSG_NOSIGNAL);
                 });
 
                 t.detach();
