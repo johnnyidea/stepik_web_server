@@ -13,6 +13,8 @@
 
 #include <iostream>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include "web_params.h"
 
@@ -35,9 +37,11 @@ public:
     void run();
 
     //-----------------------------------------------------------------------------------
-
+    static void _http_handle(int fd);
 private:
 
     int _master_socket_fd{-1};
+
+    std::string _dir;
 };
 //=======================================================================================
