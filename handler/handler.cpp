@@ -16,17 +16,23 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <arpa/inet.h>
+#include <mutex>
 
 #include "handler.h"
 
 #include "../third_party/httpparser/src/httpparser/request.h"
 #include "../third_party/httpparser/src/httpparser/httprequestparser.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+
 #define MAX_EVENTS 32
 
 using namespace std;
 using namespace httpparser;
 
+
+std::mutex m;
 //=======================================================================================
 int set_nonblock(int fd)
 {
@@ -103,18 +109,20 @@ void Handler::run()
                 int new_slave_socket = accept(_master_socket_fd, 0, 0);
                 set_nonblock(new_slave_socket);
 
-                struct epoll_event event;
-                event.data.fd = new_slave_socket;
-                event.events = EPOLLIN;
-                epoll_ctl(e_poll, EPOLL_CTL_ADD, new_slave_socket, &event);
+                struct epoll_event slave_event;
+                slave_event.data.fd = new_slave_socket;
+                slave_event.events = EPOLLIN;
+                epoll_ctl(e_poll, EPOLL_CTL_ADD, new_slave_socket, &slave_event);
             } else
             {
                 int fd = static_cast<int>(events[i].data.fd);
                 epoll_ctl(e_poll, EPOLL_CTL_DEL, fd, 0);
                 thread t([&fd, this]()
                 {
+                    m.lock();
                     std::stringstream ss;
                     static char sock_buf[1024];
+                    memset(sock_buf, 0, 1024);
                     int recv_sz = recv(fd, sock_buf, 1024, MSG_NOSIGNAL);
 
                     if (recv_sz > 0)
@@ -203,6 +211,8 @@ void Handler::run()
                         close(fd);
                     }
 
+                    m.unlock();
+
                 });
 
                 t.detach();
@@ -239,5 +249,7 @@ void Handler::_http_handle(int fd)
         }
     }
 }
+
+#pragma clang diagnostic pop
 //=======================================================================================
 
