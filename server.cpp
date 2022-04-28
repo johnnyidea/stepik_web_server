@@ -10,6 +10,18 @@
 
 #include <iostream>
 #include <csignal>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <set>
+#include <algorithm>
+#include <sys/epoll.h>
+#include <thread>
+#include <string.h>
+#include <sstream>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "web_params.h"
 #include "handler.h"
