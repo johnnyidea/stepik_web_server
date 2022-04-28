@@ -29,7 +29,6 @@
 
 int main(int argc, char** argv)
 {
-
     // For demon.
     pid_t pid;
 
