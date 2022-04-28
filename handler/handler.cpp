@@ -158,7 +158,7 @@ void Handler::run()
 
                             size = ss.str().size();
 
-                            strncpy(sock_buf, ss.str().c_str(), size);
+//                            strncpy(sock_buf, ss.str().c_str(), size);
                         } else {
                             ss << "HTTP/1.0 404 NOT FOUND";
                             ss << "\r\n";
@@ -172,10 +172,10 @@ void Handler::run()
 
                             size = ss.str().size();
 
-                            strncpy(sock_buf, ss.str().c_str(), size);
+//                            strncpy(sock_buf, ss.str().c_str(), size);
                         }
 
-                        send(fd, sock_buf, size, MSG_NOSIGNAL);
+                        send(fd, s.str().c_str(), size, MSG_NOSIGNAL);
                     }
 
                     if (recv_sz == 0 && errno != EAGAIN)
