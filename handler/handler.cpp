@@ -131,10 +131,9 @@ void Handler::run()
                         FILE *file_in = NULL;
                         char buff[255] = {0};
 
-
                         std::string file_in_name = _dir;
 
-                        std::cout << request.inspect() << std::endl;
+//                        std::cout << request.inspect() << std::endl;
                         file_in_name += request.uri;
                         file_in = fopen(file_in_name.c_str(), "r");
                         if (file_in)
@@ -149,7 +148,7 @@ void Handler::run()
                             ss << "HTTP/1.0 200 OK";
                             ss << "\r\n";
                             ss << "Content-length: ";
-                            ss << tmp.size();
+                            ss << recv_sz;
                             ss << "\r\n";
                             ss << "Content-Type: text/html";
                             ss << "\r\n\r\n";
@@ -159,7 +158,7 @@ void Handler::run()
 
                             size = ss.str().size();
 
-                            strncpy(sock_buf, ss.str().c_str(), size);
+//                            strncpy(sock_buf, ss.str().c_str(), size);
                         } else {
                             ss << "HTTP/1.0 404 NOT FOUND";
                             ss << "\r\n";
@@ -173,8 +172,10 @@ void Handler::run()
 
                             size = ss.str().size();
 
-                            strncpy(sock_buf, ss.str().c_str(), size);
+//                            strncpy(sock_buf, ss.str().c_str(), size);
                         }
+
+                        send(fd, ss.str().c_str(), size, MSG_NOSIGNAL);
                     }
 
                     if (recv_sz == 0 && errno != EAGAIN)
@@ -183,7 +184,8 @@ void Handler::run()
                         close(fd);
                     }
 
-                    send(fd, sock_buf, size, MSG_NOSIGNAL);
+//                    cout << "\n\nBUFFER OUT START \t\t" << sock_buf << "\n\nBUFFER OUT END \t\t" << endl;
+
                 });
 
                 t.detach();
