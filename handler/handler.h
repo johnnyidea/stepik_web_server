@@ -1,0 +1,43 @@
+/*! \file handler.h
+ * \brief Handler class interface.
+ *
+ * Class description.
+ *
+ * \authors rene
+ * \date April 2022
+ */
+
+//=======================================================================================
+
+#pragma once
+
+#include <iostream>
+#include <string>
+
+#include "web_params.h"
+
+//=======================================================================================
+/*! \class Handler
+ * \brief Some briefing
+ */
+class Handler
+{
+public:
+
+    //! \brief default constructor.    
+    Handler(const WebParams& web_params);
+
+    //! \brief default destructor.
+    ~Handler() = default;
+
+    //-----------------------------------------------------------------------------------
+
+    void run();
+
+    //-----------------------------------------------------------------------------------
+
+private:
+
+    int _master_socket_fd{-1};
+};
+//=======================================================================================
