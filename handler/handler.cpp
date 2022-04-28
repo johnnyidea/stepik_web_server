@@ -113,103 +113,93 @@ void Handler::run()
                 epoll_ctl(e_poll, EPOLL_CTL_DEL, fd, 0);
                 thread t([&fd, this]()
                 {
-                    std::stringstream ss;
                     static char sock_buf[1024] = {0};
                     int recv_sz = recv(fd, sock_buf, 1024, MSG_NOSIGNAL);
 
-                    if (recv_sz > 0)
+//                    cout << sock_buf << endl;
+
+                    std::stringstream ss_file_name(sock_buf);
+
+                    std::string token = "";
+                    std::string path = "";
+
+                    while (ss_file_name >> token)
                     {
-//                        cout << sock_buf << endl;
-
-                        std::stringstream ss_file_name(sock_buf);
-
-                        std::string token = "";
-                        std::string path = "";
-
-                        while (ss_file_name >> token)
-                        {
-                            //    http_request.push_back(token);
-
-                            std::size_t found = token.find("GET");
-
-                            if (found != std::string::npos) {
-                                //      std::cout << found <<'\n';
-
-                                continue;
-                            }
-
-                            path = token;
-                            break;
-
-                            printf("%s\n", token.c_str());
-                        }
-                        std::size_t found = path.find('?');
+                        std::size_t found = token.find("GET");
 
                         if (found != std::string::npos)
-                        {
-                            std::cout << found <<'\n';
-                            path = path.substr (0,found);
-                        }
+                            continue;
 
-                        std::cout << "path = " << path <<'\n';
+                        path = token;
+                        break;
 
-                        FILE *file_in = NULL;
-                        char buff[255] = {0};
+                        printf("%s\n", token.c_str());
+                    }
+                    std::size_t found = path.find('?');
 
+                    if (found != std::string::npos)
+                    {
+                        std::cout << found <<'\n';
+                        path = path.substr (0,found);
+                    }
 
-                        std::string file_in_name = _dir;
+                    std::cout << "path = " << path <<'\n';
 
-                        file_in_name += path;
-                        size_t size = 0;
+                    std::stringstream ss;
+                    FILE *file_in = NULL;
+                    char buff[255] = {0};
 
-                        file_in = fopen(file_in_name.c_str(), "r");
-                        if (file_in)
-                        {
-                            std::string tmp;
-                            fgets(buff, 255, file_in);
+                    std::string file_in_name = _dir;
 
-                            tmp += buff;
+                    file_in_name += path;
+                    size_t size = 0;
 
-                            fclose(file_in);
+                    file_in = fopen(file_in_name.c_str(), "r");
+                    if (file_in)
+                    {
+                        std::string tmp;
+                        fgets(buff, 255, file_in);
 
-                            ss << "HTTP/1.0 200 OK";
-                            ss << "\r\n";
-                            ss << "Content-length: ";
-                            ss << tmp.size();
-                            ss << "\r\n";
-                            ss << "Content-Type: text/html";
-                            ss << "\r\n\r\n";
-                            ss << tmp;
+                        tmp += buff;
 
-                            printf("ss = %s", ss.str().c_str());
+                        fclose(file_in);
 
-                            size = ss.str().size();
+                        ss << "HTTP/1.0 200 OK";
+                        ss << "\r\n";
+                        ss << "Content-length: ";
+                        ss << tmp.size();
+                        ss << "\r\n";
+                        ss << "Content-Type: text/html";
+                        ss << "\r\n\r\n";
+                        ss << tmp;
 
-                            strncpy(sock_buf, ss.str().c_str(), size);
-                        } else {
-                            ss << "HTTP/1.0 404 NOT FOUND";
-                            ss << "\r\n";
-                            ss << "Content-length: ";
-                            ss << 0;
-                            ss << "\r\n";
-                            ss << "Content-Type: text/html";
-                            ss << "\r\n\r\n";
+                        printf("ss = %s", ss.str().c_str());
 
-                            printf("ss = %s", ss.str().c_str());
+                        size = ss.str().size();
 
-                            size = ss.str().size();
+                        strncpy(sock_buf, ss.str().c_str(), size);
+                    } else {
+                        ss << "HTTP/1.0 404 NOT FOUND";
+                        ss << "\r\n";
+                        ss << "Content-length: ";
+                        ss << 0;
+                        ss << "\r\n";
+                        ss << "Content-Type: text/html";
+                        ss << "\r\n\r\n";
 
-                            strncpy(sock_buf, ss.str().c_str(), size);
-                        }
+                        printf("ss = %s", ss.str().c_str());
 
-                        send(fd, sock_buf, size, MSG_NOSIGNAL);
+                        size = ss.str().size();
+
+                        strncpy(sock_buf, ss.str().c_str(), size);
                     }
 
                     if (recv_sz == 0 && errno != EAGAIN)
                     {
                         shutdown(fd, SHUT_RDWR);
                         close(fd);
-                    }
+                    } else if (recv_sz > 0)
+                        send(fd, sock_buf, size, MSG_NOSIGNAL);
                 });
 
                 t.detach();
