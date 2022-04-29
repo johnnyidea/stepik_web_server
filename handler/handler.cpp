@@ -162,14 +162,8 @@ void Handler::_http_handle(int fd)
         send(fd, responce.c_str(), responce.size(), 0);
     }
 
-    shutdown(fd, SHUT_RDWR);
+//    shutdown(fd, SHUT_RDWR);
     close(fd);
-}
-
-Handler::~Handler()
-{
-//    shutdown(_master_socket_fd, SHUT_RDWR);
-//    close(_master_socket_fd);
 }
 //=======================================================================================
 
