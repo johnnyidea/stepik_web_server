@@ -168,8 +168,8 @@ void Handler::_http_handle(int fd)
 
 Handler::~Handler()
 {
-    shutdown(_master_socket_fd, SHUT_RDWR);
-    close(_master_socket_fd);
+//    shutdown(_master_socket_fd, SHUT_RDWR);
+//    close(_master_socket_fd);
 }
 //=======================================================================================
 
