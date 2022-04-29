@@ -132,24 +132,24 @@ bool do_get(int socket, std::string request, char buf[], int buf_sz)
     std::string responce = "HTTP/1.0 200 OK\r\n\r\n";
 
 
-    std::stringstream ss;
-    string data = buf;
-    // Create a result with "HTTP/1.0 200 OK"
-    ss << "HTTP/1.0 200 OK";
-    ss << "\r\n";
-    ss << "Content-length: ";
-    ss << data.size();
-    ss << "\r\n";
-    ss << "Content-Type: text/html";
-    ss << "\r\n\r\n";
-    ss << data;
+//    std::stringstream ss;
+//    string data = buf;
+//    // Create a result with "HTTP/1.0 200 OK"
+//    ss << "HTTP/1.0 200 OK";
+//    ss << "\r\n";
+//    ss << "Content-length: ";
+//    ss << data.size();
+//    ss << "\r\n";
+//    ss << "Content-Type: text/html";
+//    ss << "\r\n\r\n";
+//    ss << data;
+//
+//    cout << "size: " << ss.str().size() << "\n" << ss.str() << endl;
+    send(socket, responce.c_str(), responce.size(), 0);
 
-    cout << "size: " << ss.str().size() << "\n" << ss.str() << endl;
-    send(socket, ss.str().c_str(), ss.str().size(), 0);
-
-//    char readBuf[2048];
-//    while (int cntRead = read(fd, readBuf, 2048))
-//        send(socket, readBuf, cntRead, 0);
+    char readBuf[2048];
+    while (int cntRead = read(fd, readBuf, 2048))
+        send(socket, readBuf, cntRead, 0);
 
     shutdown(fd, SHUT_RDWR);
     close(fd);
