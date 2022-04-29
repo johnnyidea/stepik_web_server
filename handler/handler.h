@@ -29,8 +29,6 @@ public:
     //! \brief default constructor.    
     Handler(const WebParams& web_params);
 
-    ~Handler();
-
     //! \brief default destructor.
 
     //-----------------------------------------------------------------------------------
