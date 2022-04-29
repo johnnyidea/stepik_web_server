@@ -110,7 +110,7 @@ bool check_get(std::string request)
     return ( (request.size() > 3) && ( "GET" == request.substr(0, 3) ) );
 }
 
-bool do_get(int socket, std::string request)
+bool do_get(int socket, std::string request, char buf[], int buf_sz)
 {
     if (std::string::npos != request.find("?"))
         request = request.substr(0, request.find("?"));
@@ -129,8 +129,33 @@ bool do_get(int socket, std::string request)
         return false;
     }
 
-    std::string responce = "HTTP/1.0 200 OK\r\n\r\n";
-    send(socket, responce.c_str(), responce.size(), 0);
+    std::string responce = buf;
+
+    std::stringstream ss;
+    // Create a result with "HTTP/1.0 200 OK"
+    ss << "HTTP/1.0 200 OK";
+    ss << "\r\n";
+    ss << "Content-length: ";
+    ss << buf_sz;
+    ss << "\r\n";
+    ss << "Content-Type: text/html";
+    ss << "\r\n\r\n";
+    ss << responce;
+
+//    static const char* templ = "HTTP/1.0 200 OK\r\n"
+//
+//                               "Content-length: %d\r\n"
+//
+//                               "Connection: close\r\n"
+//
+//                               "Content-Type: text/html\r\n"
+//
+//                               "\r\n"
+//
+//                               "%s";
+
+//    cout << ss.str().c_str() << endl;
+    send(socket, ss.str().c_str(), ss.str().size(), 0);
     char readBuf[2048];
 
     while (int cntRead = read(fd, readBuf, 2048))
@@ -142,7 +167,7 @@ bool do_get(int socket, std::string request)
 
 void Handler::_http_handle(int fd)
 {
-    char buf[2048];
+    char buf[2048] = {0};
     int recv_sz = recv(fd, buf, 2048, MSG_NOSIGNAL);
 
     if (recv_sz == -1 || recv_sz == 0)
@@ -154,7 +179,7 @@ void Handler::_http_handle(int fd)
     std::string request_str(buf, (unsigned long)recv_sz);
 
     if (check_get(request_str))
-        do_get(fd, request_str);
+        do_get(fd, request_str, buf, recv_sz);
     else
     {
         std::string responce = "HTTP/1.0 400 Bad Request\r\nContent-Length: 0\r\nContent-Type: text/html\r\n\r\n";
