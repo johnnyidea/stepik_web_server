@@ -129,38 +129,14 @@ bool do_get(int socket, std::string request, char buf[], int buf_sz)
         return false;
     }
 
-    std::string responce = buf;
-
-    std::stringstream ss;
-    // Create a result with "HTTP/1.0 200 OK"
-    ss << "HTTP/1.0 200 OK";
-    ss << "\r\n";
-    ss << "Content-length: ";
-    ss << buf_sz;
-    ss << "\r\n";
-    ss << "Content-Type: text/html";
-    ss << "\r\n\r\n";
-    ss << responce;
-
-//    static const char* templ = "HTTP/1.0 200 OK\r\n"
-//
-//                               "Content-length: %d\r\n"
-//
-//                               "Connection: close\r\n"
-//
-//                               "Content-Type: text/html\r\n"
-//
-//                               "\r\n"
-//
-//                               "%s";
-
-//    cout << ss.str().c_str() << endl;
-    send(socket, ss.str().c_str(), ss.str().size(), 0);
+    std::string responce = "HTTP/1.0 200 OK\r\n\r\n";
+    send(socket, responce.c_str(), responce.size(), 0);
     char readBuf[2048];
 
     while (int cntRead = read(fd, readBuf, 2048))
         send(socket, readBuf, cntRead, 0);
 
+    shutdown(fd, SHUT_RDWR);
     close(fd);
     return true;
 }
@@ -188,6 +164,12 @@ void Handler::_http_handle(int fd)
 
     shutdown(fd, SHUT_RDWR);
     close(fd);
+}
+
+Handler::~Handler()
+{
+    shutdown(_master_socket_fd, SHUT_RDWR);
+    close(_master_socket_fd);
 }
 //=======================================================================================
 
