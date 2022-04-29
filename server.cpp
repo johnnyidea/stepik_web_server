@@ -29,25 +29,6 @@
 
 int main(int argc, char** argv)
 {
-    // For demon.
-    pid_t pid;
-
-    pid = fork();
-
-    if (pid < 0)
-        exit(EXIT_FAILURE);
-
-//    std::cerr << "dont forget";
-    if (pid > 0)
-        exit(EXIT_SUCCESS);
-
-    if (pid == 0) {
-        setsid();
-        close(STDIN_FILENO);
-        close(STDOUT_FILENO);
-        close(STDERR_FILENO);
-    }
-
     WebParams web_params;
     web_params.parse(argc, argv);
 

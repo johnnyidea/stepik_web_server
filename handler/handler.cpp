@@ -16,23 +16,17 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <arpa/inet.h>
-#include <mutex>
 
 #include "handler.h"
 
 #include "../third_party/httpparser/src/httpparser/request.h"
 #include "../third_party/httpparser/src/httpparser/httprequestparser.h"
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-
 #define MAX_EVENTS 32
 
 using namespace std;
 using namespace httpparser;
 
-
-std::mutex m;
 //=======================================================================================
 int set_nonblock(int fd)
 {
@@ -50,8 +44,8 @@ int set_nonblock(int fd)
 }
 //=======================================================================================
 Handler::Handler(const WebParams &web_params)
-    :_master_socket_fd(socket(AF_INET, SOCK_STREAM, 0)),
-     _dir(web_params.get_dir())
+        :_master_socket_fd(socket(AF_INET, SOCK_STREAM, 0)),
+         _dir(web_params.get_dir())
 {
     int opt = 1;
 
@@ -80,176 +74,95 @@ Handler::Handler(const WebParams &web_params)
     }
 
     set_nonblock(_master_socket_fd);
-
-    if (listen(_master_socket_fd, SOMAXCONN) < 0)
-    {
-        cerr << "Couldn't listen";
-        exit(EXIT_FAILURE);
-    }
-
 }
 //=======================================================================================
 void Handler::run()
 {
-    int e_poll = epoll_create1(0);
-    struct epoll_event event;
-    event.data.fd = _master_socket_fd;
-    event.events = EPOLLIN;// access to read | edge trigger regime
-    epoll_ctl(e_poll, EPOLL_CTL_ADD, _master_socket_fd, &event); //register events
-
-
-    while (true)
+    if (!fork())
     {
-        struct epoll_event events[MAX_EVENTS];
-        int n = epoll_wait(e_poll, events, MAX_EVENTS, -1); //-1 inf wait
+        //daemon
+        setsid();
+        close(STDIN_FILENO);
+        close(STDOUT_FILENO);
+        close(STDERR_FILENO);
+        chdir(_dir.c_str());
 
-        for (uint i = 0; i < n; i++)
-            if (events[i].data.fd == _master_socket_fd)
-            {
-                int new_slave_socket = accept(_master_socket_fd, 0, 0);
-                set_nonblock(new_slave_socket);
-
-                struct epoll_event slave_event;
-                slave_event.data.fd = new_slave_socket;
-                slave_event.events = EPOLLIN;
-                epoll_ctl(e_poll, EPOLL_CTL_ADD, new_slave_socket, &slave_event);
-            } else
-            {
-                int fd = static_cast<int>(events[i].data.fd);
-                epoll_ctl(e_poll, EPOLL_CTL_DEL, fd, 0);
-                thread t([&fd, this]()
-                {
-                    m.lock();
-                    std::stringstream ss;
-                    static char sock_buf[1024];
-                    memset(sock_buf, 0, 1024);
-                    int recv_sz = recv(fd, sock_buf, 1024, MSG_NOSIGNAL);
-
-                    if (recv_sz > 0)
-                    {
-                        std::stringstream ss_file_name(sock_buf);
-
-                        std::string token = "";
-                        std::string path = "";
-
-
-                        while (ss_file_name >> token)
-                        {
-                            std::size_t found = token.find("GET");
-
-                            if (found != std::string::npos)
-                                continue;
-
-                            path = token;
-                            break;
-                        }
-
-                        std::size_t found = path.find('?');
-
-                        if (found != std::string::npos) {
-                            std::cout << found <<'\n';
-
-                            path = path.substr (0,found);
-                        }
-
-                        std::cout << "path = " << path <<'\n';
-
-                        FILE *file_in = NULL;
-                        char buff[255] = {0};
-
-                        std::string file_in_name = _dir;
-
-                        file_in_name += path;
-                        size_t size = 0;
-
-                        file_in = fopen(file_in_name.c_str(), "r");
-                        if (file_in)
-                        {
-                            std::string tmp;
-                            fgets(buff, 255, file_in);
-
-                            tmp += buff;
-
-                            fclose(file_in);
-
-                            ss << "HTTP/1.0 200 OK";
-                            ss << "\r\n";
-                            ss << "Content-length: ";
-                            ss << tmp.size();
-                            ss << "\r\n";
-                            ss << "Content-Type: text/html";
-                            ss << "\r\n\r\n";
-                            ss << tmp;
-
-                            printf("ss = %s", ss.str().c_str());
-
-                            size = ss.str().size();
-
-                            strncpy(sock_buf, ss.str().c_str(), size);
-                        } else {
-                            ss << "HTTP/1.0 404 NOT FOUND";
-                            ss << "\r\n";
-                            ss << "Content-length: ";
-                            ss << 0;
-                            ss << "\r\n";
-                            ss << "Content-Type: text/html";
-                            ss << "\r\n\r\n";
-
-                            printf("ss = %s", ss.str().c_str());
-
-                            size = ss.str().size();
-
-                            strncpy(sock_buf, ss.str().c_str(), size);
-                        }
-
-                        send(fd, sock_buf, size, MSG_NOSIGNAL);
-                    }
-
-                    if (recv_sz == 0 && errno != EAGAIN)
-                    {
-                        shutdown(fd, SHUT_RDWR);
-                        close(fd);
-                    }
-
-                    m.unlock();
-
-                });
-
-                t.detach();
-
-//                shutdown(fd, SHUT_RDWR);
-//                close(fd);
-            }
-    }
-}
-
-void Handler::_http_handle(int fd)
-{
-    static char buf[1024];
-    int recv_sz = recv(fd, buf, 1024, MSG_NOSIGNAL);
-
-    if (recv_sz == 0 && errno != EAGAIN)
-    {
-        shutdown(fd, SHUT_RDWR);
-        close(fd);
-    }
-    else if (recv_sz > 0)
-    {
-        Request request;
-        HttpRequestParser parser;
-
-        HttpRequestParser::ParseResult res = parser.parse(request, buf, buf + strlen(buf));
-
-        if (res == HttpRequestParser::ParsingCompleted)
+        if (listen(_master_socket_fd, SOMAXCONN) < 0)
         {
-            std::cout << request.inspect() << std::endl;
-        } else
+            cerr << "Couldn't listen";
+            exit(EXIT_FAILURE);
+        }
+
+        while (true)
         {
-            std::cerr << "Parsing failed" << std::endl;
+            int slave_socket = accept(_master_socket_fd, 0, 0);
+            set_nonblock(slave_socket);
+
+            thread t(_http_handle, slave_socket);
+
+            t.detach();
         }
     }
 }
 
-#pragma clang diagnostic pop
+bool check_get(std::string request)
+{
+    return ( (request.size() > 3) && ( "GET" == request.substr(0, 3) ) );
+}
+
+bool do_get(int socket, std::string request)
+{
+    if (std::string::npos != request.find("?"))
+        request = request.substr(0, request.find("?"));
+
+    if (std::string::npos != request.find("HTTP"))
+        request = request.substr(0, request.find("HTTP"));
+
+    std::string fullpath = request.substr(request.find("/"), request.size() - request.find("/"));
+    fullpath = "." + fullpath;
+    fullpath.erase(std::remove(fullpath.begin(), fullpath.end(), ' '), fullpath.end());
+    int fd = open(fullpath.c_str(), O_RDONLY);
+    if (-1 == fd) //if cannot open file
+    {
+        std::string responce = "HTTP/1.0 404 NOT FOUND\r\nContent-Length: 0\r\nContent-Type: text/html\r\n\r\n";
+        send(socket, responce.c_str(), responce.size(), 0);
+        return false;
+    }
+
+    std::string responce = "HTTP/1.0 200 OK\r\n\r\n";
+    send(socket, responce.c_str(), responce.size(), 0);
+    char readBuf[1024];
+
+    while (int cntRead = read(fd, readBuf, 1024))
+        send(socket, readBuf, cntRead, 0);
+
+    close(fd);
+    return true;
+}
+
+void Handler::_http_handle(int fd)
+{
+    char buf[2048];
+    int recv_sz = recv(fd, buf, 2048, MSG_NOSIGNAL);
+
+    if (recv_sz == -1 || recv_sz == 0)
+    {
+        shutdown(fd, SHUT_RDWR);
+        close(fd);
+        return;
+    }
+    std::string request_str(buf, (unsigned long)recv_sz);
+
+    if (check_get(request_str))
+        do_get(fd, request_str);
+    else
+    {
+        std::string responce = "HTTP/1.0 400 Bad Request\r\nContent-Length: 0\r\nContent-Type: text/html\r\n\r\n";
+        send(fd, responce.c_str(), responce.size(), 0);
+    }
+
+    shutdown(fd, SHUT_RDWR);
+    close(fd);
+}
 //=======================================================================================
 
