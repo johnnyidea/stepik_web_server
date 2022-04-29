@@ -131,9 +131,9 @@ bool do_get(int socket, std::string request)
 
     std::string responce = "HTTP/1.0 200 OK\r\n\r\n";
     send(socket, responce.c_str(), responce.size(), 0);
-    char readBuf[1024];
+    char readBuf[2048];
 
-    while (int cntRead = read(fd, readBuf, 1024))
+    while (int cntRead = read(fd, readBuf, 2048))
         send(socket, readBuf, cntRead, 0);
 
     close(fd);
